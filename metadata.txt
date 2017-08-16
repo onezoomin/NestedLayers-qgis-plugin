@@ -1,7 +1,7 @@
 [general]
-name=Minimal
-description=Minimal plugin
-version=1.0
+name=NestedLayers
+description=Plugin to autosave all TreeGroups named with .qlr as external files and to update top level .qlr groups from external files on project load event and/or manually.
+version=0.1
 qgisMinimumVersion=2.0
-author=Martin Dobias
-email=wonder.sk@gmail.com
+author=Joshua Gottdenker
+email=me@1zm.in
