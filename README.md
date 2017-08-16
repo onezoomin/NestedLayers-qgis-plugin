@@ -1,7 +1,7 @@
 # Nested Layers QGIS  Plugin
 
 Roadmap for Features:
- - [ ] Update all top level .qlr groups from matching files in the project folder
+ - [x] Update all top level .qlr groups from matching files in the project folder
  - [ ] Autosave all recursive .qlr files to matching files in the project folder
  - [ ] ??
 
