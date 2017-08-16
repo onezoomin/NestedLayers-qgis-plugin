@@ -15,9 +15,12 @@
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import os
+import datetime
 from qgis.core import QgsProject
 from qgis.core import QgsMessageLog
 from qgis.core import QgsLayerDefinition
+from qgis.core import QgsLayerTreeGroup
+from qgis.core import QgsLayerTreeNode
 
 def classFactory(iface):
     return NestedLayers(iface)
@@ -33,6 +36,7 @@ class NestedLayers:
 
         self.actionSave = QAction(u'Save QLRs', self.iface.mainWindow())
         self.actionSave.triggered.connect(self.save)
+        QgsProject.instance().projectSaved.connect(self.save)
         self.iface.addToolBarIcon(self.actionSave)
 
     def unload(self):
@@ -50,10 +54,23 @@ class NestedLayers:
 
     def save(self):
         self.qlrsRecursive  = []
-        #self.findAllQlr()
-        #cnt=self.loopThrough()
+        self.findAllQlrRecursive()
+        cnt=self.loopThroughRecursive()
 
-        QMessageBox.information(None, u'NestedLayers', u'Placeholder for Saving')
+        QMessageBox.information(None, u'NestedLayers', u'Found:'+format(cnt))
+
+    def loopThroughRecursive(self):
+
+        savedCount=0
+        path_absolute = QgsProject.instance().readPath("./")+'/'
+        for thisqlr in self.qlrsRecursive :
+            msg = path_absolute+thisqlr['layerObj'].name() + ' in: ' + thisqlr['parent'].name()
+            QgsMessageLog.logMessage( msg, 'savelyrs')
+            if os.path.exists(path_absolute+thisqlr['name']+'.qlr'):
+                os.rename(path_absolute+thisqlr['name']+'.qlr', path_absolute+'../Backup/'+thisqlr['name']+'.'+datetime.datetime.now().strftime('%Y%m%d_%H%M%S')+'.qlr~') #mv files to backup 
+            if QgsLayerDefinition.exportLayerDefinition(path_absolute+thisqlr['name']+'.qlr',[thisqlr['layerObj']]):
+                savedCount += 1
+        return savedCount
 
     def loopThrough(self):
 
@@ -82,3 +99,11 @@ class NestedLayers:
             lext=lname[-4:]
             if lext == '.qlr':
                 self.qlrs .append({'name':lname[:-4],'parent':thisLayer,'layerObj':lyr})
+
+    def findAllQlrRecursive(self, thisLayer = QgsProject.instance().layerTreeRoot()):
+        for lyr in thisLayer.children():
+            lname=lyr.name()
+            QgsMessageLog.logMessage(lname, 'lyrext')
+            if lname[-4:] == '.qlr':
+                self.qlrsRecursive.append({'name':lname[:-4],'parent':thisLayer,'layerObj':lyr})
+            self.findAllQlrRecursive(lyr)

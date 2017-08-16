@@ -2,7 +2,7 @@
 
 Roadmap for Features:
  - [x] Update all top level .qlr groups from matching files in the project folder
- - [ ] Autosave all recursive .qlr files to matching files in the project folder
+ - [x] Autosave all recursive .qlr files to matching files in the project folder
  - [ ] ??
 
 ## Why?
