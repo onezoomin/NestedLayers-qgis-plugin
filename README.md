@@ -1,11 +1,12 @@
 # Nested Layers QGIS  Plugin
 
 Roadmap for Features:
- - [x] Update all top level .qlr groups from matching files in the project folder
- - [x] Autosave all recursive .qlr files to matching files in the project folder
- - [ ] Options
- - [ ] Move Backup Save Files to ../Backup
- - [ ] Custom Layer Properties for Modification Date Sensitivity
+- [x] Update all top level .qlr groups from matching files in the project folder
+- [x] Autosave all recursive .qlr files to matching files in the project folder
+- [ ] Custom Layer Properties for Modification Date Sensitivity
+- [ ] Options
+  - [ ] Backup Options [#1](https://github.com/onezoomin/NestedLayers-qgis-plugin/issues/1)
+
 
 
 ## Why?
