@@ -14,13 +14,10 @@
 
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
-import os
-import datetime
+import os, time, datetime
 from qgis.core import QgsProject
 from qgis.core import QgsMessageLog
-from qgis.core import QgsLayerDefinition
-from qgis.core import QgsLayerTreeGroup
-from qgis.core import QgsLayerTreeNode
+from qgis.core import QgsLayerDefinition, QgsLayerTreeGroup, QgsLayerTreeNode
 
 def classFactory(iface):
     return NestedLayers(iface)
@@ -57,38 +54,51 @@ class NestedLayers:
         self.findAllQlrRecursive()
         cnt=self.loopThroughRecursive()
 
-        QMessageBox.information(None, u'NestedLayers', u'Found:'+format(cnt))
+        QMessageBox.information(None, u'NestedLayers', u'Saved Layers:'+format(cnt))
 
     def loopThroughRecursive(self):
-
         savedCount=0
         path_absolute = QgsProject.instance().readPath("./")+'/'
         for thisqlr in self.qlrsRecursive :
             msg = path_absolute+thisqlr['layerObj'].name() + ' in: ' + thisqlr['parent'].name()
             QgsMessageLog.logMessage( msg, 'savelyrs')
-            if os.path.exists(path_absolute+thisqlr['name']+'.qlr'):
-                os.rename(path_absolute+thisqlr['name']+'.qlr', path_absolute+'../Backup/'+thisqlr['name']+'.'+datetime.datetime.now().strftime('%Y%m%d_%H%M%S')+'.qlr~') #mv files to backup 
-            if QgsLayerDefinition.exportLayerDefinition(path_absolute+thisqlr['name']+'.qlr',[thisqlr['layerObj']]):
+            thisPath = path_absolute+thisqlr['name']+'.qlr'
+            if os.path.exists(thisPath):
+                previousModDate = time.strftime('%Y%m%d_%H%M%S',time.localtime(os.path.getmtime(thisPath)))
+                newModDate = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                os.rename(thisPath, path_absolute+'../Backup/'+thisqlr['name']+'.'+previousModDate+'.qlr~') #mv files to backup
+            thisqlr['layerObj'].setCustomProperty('LastSaved',newModDate)
+            thisqlr['layerObj'].setCustomProperty('TimeTime',round(float(time.time())))
+            if QgsLayerDefinition.exportLayerDefinition(thisPath,[thisqlr['layerObj']]):
                 savedCount += 1
-        return savedCount
+        return format(savedCount)+' '+newModDate
 
     def loopThrough(self):
-
         loadedCount=0
         path_absolute = QgsProject.instance().readPath("./")+'/'
+
         for thisqlr in self.qlrs :
+            thisPath = path_absolute+thisqlr['name']+'.qlr'
             msg = path_absolute+thisqlr['layerObj'].name() + ' into: ' + thisqlr['parent'].name()
             QgsMessageLog.logMessage( msg, 'lyrs')
-            if QgsLayerDefinition.loadLayerDefinition(path_absolute+thisqlr['name']+'.qlr',thisqlr['parent']):
-                thisqlr['parent'].removeChildNode(thisqlr['layerObj'])
-                loadedCount += 1
+            fileModTime = os.path.getmtime(thisPath)
+            nowTime = time.time()
+            layerModTime = thisqlr['layerObj'].customProperty('TimeTime')
+            if round(float(fileModTime),1) > round(float(layerModTime),1):
+                msg = 'Loading:'+thisPath +"\n"+format(fileModTime)+'?>?'+format(round(float(layerModTime),1))
+                QgsMessageLog.logMessage( msg, 'Loading')
+                if QgsLayerDefinition.loadLayerDefinition(thisPath,thisqlr['parent']):
+                    thisqlr['parent'].removeChildNode(thisqlr['layerObj'])
+                    loadedCount += 1
+            else:
+                msg = 'Skipping:'+thisPath +"\n"+format(fileModTime)+'?>?'+format(round(float(layerModTime),1))
+                QgsMessageLog.logMessage( msg, 'Loading')
+
         for thisqlr in self.qlrs :
-            msg = thisqlr['name'] + ' expanded: ' + format(QgsProject.instance().layerTreeRoot().findGroup(thisqlr['name']+'.qlr').isExpanded())
-            QgsMessageLog.logMessage( msg, 'Expanded')
+            #msg = thisqlr['name'] + ' expanded: ' + format(QgsProject.instance().layerTreeRoot().findGroup(thisqlr['name']+'.qlr').isExpanded())
+            #QgsMessageLog.logMessage( msg, 'Expanded')
             QgsProject.instance().layerTreeRoot().findGroup(thisqlr['name']+'.qlr').setExpanded(False)
-        for thisqlr in self.qlrs :
-            msg = thisqlr['name'] + ' expanded: ' + format(QgsProject.instance().layerTreeRoot().findGroup(thisqlr['name']+'.qlr').isExpanded())
-            QgsMessageLog.logMessage( msg, 'Expanded')
+
         return loadedCount
 
     def findAllQlr(self):
@@ -97,13 +107,13 @@ class NestedLayers:
             lname=lyr.name()
             QgsMessageLog.logMessage(lname, 'lyrext')
             lext=lname[-4:]
-            if lext == '.qlr':
-                self.qlrs .append({'name':lname[:-4],'parent':thisLayer,'layerObj':lyr})
+            if lext == '.qlr' and lyr.customProperty('embedded') != '1' :
+                self.qlrs.append({'name':lname[:-4],'parent':thisLayer,'layerObj':lyr})
 
     def findAllQlrRecursive(self, thisLayer = QgsProject.instance().layerTreeRoot()):
         for lyr in thisLayer.children():
             lname=lyr.name()
-            QgsMessageLog.logMessage(lname, 'lyrext')
-            if lname[-4:] == '.qlr':
+            lext=lname[-4:]
+            if lext == '.qlr' and lyr.customProperty('embedded') != '1' :
                 self.qlrsRecursive.append({'name':lname[:-4],'parent':thisLayer,'layerObj':lyr})
-            self.findAllQlrRecursive(lyr)
+                self.findAllQlrRecursive(lyr)
