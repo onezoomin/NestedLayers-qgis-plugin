@@ -14,10 +14,10 @@
 
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
+from qgis.PyQt.QtXml import *
+
 import os, time, datetime
-from qgis.core import QgsProject
-from qgis.core import QgsMessageLog
-from qgis.core import QgsLayerDefinition, QgsLayerTreeGroup, QgsLayerTreeNode
+from qgis.core import *
 
 def classFactory(iface):
     return NestedLayers(iface)
@@ -33,7 +33,7 @@ class NestedLayers:
 
         self.actionSave = QAction(u'Save QLRs', self.iface.mainWindow())
         self.actionSave.triggered.connect(self.save)
-        QgsProject.instance().projectSaved.connect(self.save)
+        QgsProject.instance().writeProject.connect(self.save)
         self.iface.addToolBarIcon(self.actionSave)
 
     def unload(self):
@@ -43,13 +43,25 @@ class NestedLayers:
         del self.actionSave
 
     def load(self):
+        self.path_absolute = QFileInfo(QgsProject.instance().fileName()) .absolutePath()+'/'
+
         self.qlrs  = []
         self.findAllQlr()
         cnt=self.loopThrough()
 
         QMessageBox.information(None, u'NestedLayers', u'Loaded Layers: '+format(cnt))
 
-    def save(self):
+    def save(self, dom):
+        self.path_absolute = QFileInfo(QgsProject.instance().fileName()) .absolutePath()+'/'
+
+        # #replace all absolute paths with relative
+        # if dom:
+        #     QgsMessageLog.logMessage( format(dom.toString()), 'dom')
+        #     fixed = dom.toString().replace(self.path_absolute,"./")
+        #     QgsMessageLog.logMessage( format(fixed), 'fixed')
+        #     dom.setContent(fixed)
+        # #commented because it breaks groups - should not be needed anyway!
+
         self.qlrsRecursive  = []
         self.findAllQlrRecursive()
         cnt=self.loopThroughRecursive()
@@ -58,28 +70,36 @@ class NestedLayers:
 
     def loopThroughRecursive(self):
         savedCount=0
-        path_absolute = QgsProject.instance().readPath("./")+'/'
+
         for thisqlr in self.qlrsRecursive :
-            msg = path_absolute+thisqlr['layerObj'].name() + ' in: ' + thisqlr['parent'].name()
+            msg = self.path_absolute+thisqlr['layerObj'].name() + ' in: ' + thisqlr['parent'].name()
             QgsMessageLog.logMessage( msg, 'savelyrs')
-            thisPath = path_absolute+thisqlr['name']+'.qlr'
+            thisPath = self.path_absolute+thisqlr['name']+'.qlr'
+            newModDate = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             if os.path.exists(thisPath):
                 previousModDate = time.strftime('%Y%m%d_%H%M%S',time.localtime(os.path.getmtime(thisPath)))
-                newModDate = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-                os.rename(thisPath, path_absolute+'../Backup/'+thisqlr['name']+'.'+previousModDate+'.qlr~') #mv files to backup
+                os.rename(thisPath, self.path_absolute+'../Backup/'+thisqlr['name']+'.'+previousModDate+'.qlr~') #mv files to backup
             thisqlr['layerObj'].setCustomProperty('LastSaved',newModDate)
             thisqlr['layerObj'].setCustomProperty('TimeTime',round(float(time.time())))
             if QgsLayerDefinition.exportLayerDefinition(thisPath,[thisqlr['layerObj']]):
                 savedCount += 1
-        return format(savedCount)+' '+newModDate
+                # if True: # self.Options.RelativizeQlr:
+                #     qlrXmlFile = open(thisPath,'r+')
+                #     rel = qlrXmlFile.read().replace(self.path_absolute,"./")
+                #     qlrXmlFile.write(rel)
+                #     qlrXmlFile.flush()
+                #     os.fsync(qlrXmlFile.fileno())
+                #     qlrXmlFile.close()
+                #     QgsMessageLog.logMessage( rel, 'relqlr')
+
+        return format(savedCount)
 
     def loopThrough(self):
         loadedCount=0
-        path_absolute = QgsProject.instance().readPath("./")+'/'
 
         for thisqlr in self.qlrs :
-            thisPath = path_absolute+thisqlr['name']+'.qlr'
-            msg = path_absolute+thisqlr['layerObj'].name() + ' into: ' + thisqlr['parent'].name()
+            thisPath = self.path_absolute+thisqlr['name']+'.qlr'
+            msg = self.path_absolute+thisqlr['layerObj'].name() + ' into: ' + thisqlr['parent'].name()
             QgsMessageLog.logMessage( msg, 'lyrs')
             fileModTime = os.path.getmtime(thisPath)
             nowTime = time.time()
