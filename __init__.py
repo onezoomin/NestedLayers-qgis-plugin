@@ -34,6 +34,7 @@ class NestedLayers:
         self.actionSave = QAction(u'Save QLRs', self.iface.mainWindow())
         self.actionSave.triggered.connect(self.save)
         QgsProject.instance().writeProject.connect(self.save)
+        QgsProject.instance().projectSaved.connect(self.afterSave)
         self.iface.addToolBarIcon(self.actionSave)
 
     def unload(self):
@@ -41,6 +42,15 @@ class NestedLayers:
         del self.actionLoad
         self.iface.removeToolBarIcon(self.actionSave)
         del self.actionSave
+
+    def afterSave(self):
+        #if self.Options['moveBackupQgsFiles'] #ready for options
+        thisPath = QgsProject.instance().fileName()
+        self.path_absolute = QFileInfo(QgsProject.instance().fileName()) .absolutePath()+'/'
+        thisFileName = QFileInfo(QgsProject.instance().fileName()) .fileName()
+        if os.path.exists(thisPath+'~'):
+            previousModDate = time.strftime('%Y%m%d_%H%M%S',time.localtime(os.path.getmtime(thisPath+'~')))
+            os.rename(thisPath+'~', self.path_absolute+'../Backup/'+thisFileName+'.'+previousModDate+'.qgs') #mv files to backup
 
     def load(self):
         self.path_absolute = QFileInfo(QgsProject.instance().fileName()) .absolutePath()+'/'
